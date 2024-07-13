@@ -159,7 +159,16 @@ def update_all_comics_in_db():
             print(f"Error fetching URL: {e}")
 
 def download_top_comics():
-    print("DANG XAY DUNG")
+    top_all_url = os.getenv("MANGA_DOMAIN") + "tim-truyen?status=&sort=10"
+    response = rate_limited_request(top_all_url)
+    if response is None:
+        return None
+    parsed_html = BeautifulSoup(response.content, 'html.parser')
+    comics_link = parsed_html.find("div", class_="ModuleContent").find("div", class_="items").find_all("items")
+    print(comics_link)
+
+    
+
 
 def get_chapter_list_from_user():
     print("SCRIPT DOWNLOAD TRUYEN TRANH")
