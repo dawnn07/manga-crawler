@@ -171,65 +171,72 @@ def download_top_comics():
 
 
 def get_chapter_list_from_user():
-    print("SCRIPT DOWNLOAD TRUYEN TRANH")
-    print("\nNHAN SO 1 DE DOWNLOAD CHAP TUY CHON")
-    print("NHAN SO 2 DE DOWNLOAD HET CAC CHAP")
-    print("NHAN SO 3 DE UPDATE LAI DANH SACH TRUYEN")
-    print("NHAN SO 4 DE DOWNLOAD TOP TRUYEN HOT")
-    print("\nNHAN SO 0 DE THOAT")
+    while True:
+        print("SCRIPT DOWNLOAD TRUYEN TRANH")
+        print("\nNHAN SO 1 DE DOWNLOAD CHAP TUY CHON")
+        print("NHAN SO 2 DE DOWNLOAD HET CAC CHAP")
+        print("NHAN SO 3 DE UPDATE LAI DANH SACH TRUYEN")
+        print("NHAN SO 4 DE DOWNLOAD TOP TRUYEN HOT")
+        print("\nNHAN SO 0 DE THOAT")
 
-    value = int(input())
-    if value == 0:
-        exit()
-    elif value == 1:
-        url = input("Please enter the URL to get the chapter list: ")
-        chapter_data = comic_info(url)
-        if chapter_data is None:
-            print("Failed to retrieve comic information.")
-            return
+        try:
+            value = int(input())
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+            continue
 
-        chapters = chapter_data['chapterlist']
-        comic_path = chapter_data['comic_path']
-        comic_detail = chapter_data['comic_detail']
-        print("\nNHAP CHAP BAN MUON DOWNLOAD")
-        value_one = input()
-        name_chapter = "CHAPTER " + value_one
-        print("DANG DOWNLOAD CHAP " + name_chapter)
-        if name_chapter in chapters:
-            download_chapter(name_chapter, chapters)
+        if value == 0:
+            print("Exiting the script.")
+            break
+        elif value == 1:
+            url = input("Please enter the URL to get the chapter list: ")
+            chapter_data = comic_info(url)
+            if chapter_data is None:
+                print("Failed to retrieve comic information.")
+                continue
+
+            chapters = chapter_data['chapterlist']
+            comic_path = chapter_data['comic_path']
+            comic_detail = chapter_data['comic_detail']
+            print("\nNHAP CHAP BAN MUON DOWNLOAD")
+            value_one = input()
+            name_chapter = "CHAPTER " + value_one
+            print("DANG DOWNLOAD CHAP " + name_chapter)
+            if name_chapter in chapters:
+                download_chapter(name_chapter, chapters)
+            else:
+                print("CHAP CHUA RA HOAC BI LOI ROI BAN OI!!!")
+        elif value == 2:
+            url = input("Please enter the URL to get the chapter list: ")
+            chapter_data = comic_info(url)
+            if chapter_data is None:
+                print("Failed to retrieve comic information.")
+                continue
+
+            chapters = chapter_data['chapterlist']
+            comic_path = chapter_data['comic_path']
+            comic_detail = chapter_data['comic_detail']
+            results = []
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [executor.submit(download_chapter, name_chapter, chapters) for name_chapter in chapters]
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()
+                        if result:
+                            results.append(result)
+                    except Exception as e:
+                        print(f"Error downloading chapter: {e}")
+            sorted_results = sorted(results, key=lambda x: x['chapter'], reverse=True)
+            mycol.insert_one({
+                'comic_path': comic_path,
+                'comic_detail': comic_detail,
+                'chapters': sorted_results
+            })
+        elif value == 3:
+            update_all_comics_in_db()
+        elif value == 4:
+            download_top_comics()
         else:
-            print("CHAP CHUA RA HOAC BI LOI ROI BAN OI!!!")
-    elif value == 2:
-        url = input("Please enter the URL to get the chapter list: ")
-        chapter_data = comic_info(url)
-        if chapter_data is None:
-            print("Failed to retrieve comic information.")
-            return
-
-        chapters = chapter_data['chapterlist']
-        comic_path = chapter_data['comic_path']
-        comic_detail = chapter_data['comic_detail']
-        results = []
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(download_chapter, name_chapter, chapters) for name_chapter in chapters]
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    result = future.result()
-                    if result:
-                        results.append(result)
-                except Exception as e:
-                    print(f"Error downloading chapter: {e}")
-        sorted_results = sorted(results, key=lambda x: x['chapter'], reverse=True)
-        mycol.insert_one({
-            'comic_path': comic_path,
-            'comic_detail': comic_detail,
-            'chapters': sorted_results
-        })
-    elif value == 3:
-        update_all_comics_in_db()
-    elif value == 4:
-        download_top_comics()
-    else:
-        print("BAN NHAP CHUA HOP LE!!!")
+            print("BAN NHAP CHUA HOP LE!!!")
 
 get_chapter_list_from_user()
