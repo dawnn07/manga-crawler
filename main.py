@@ -7,12 +7,12 @@ import re
 import os
 import time
 from dotenv import load_dotenv
-
+from zenrows import ZenRowsClient
 
 load_dotenv()
 
 myclient = pymongo.MongoClient(os.getenv("MONGO_URI"))
-mydb = myclient["test"]
+mydb = myclient["devtruyen"]
 mycol = mydb["comics"]
 
 
@@ -158,16 +158,49 @@ def update_all_comics_in_db():
         except requests.RequestException as e:
             print(f"Error fetching URL: {e}")
 
-def download_top_comics():
-    top_all_url = os.getenv("MANGA_DOMAIN") + "tim-truyen?status=&sort=10"
-    response = rate_limited_request(top_all_url)
-    if response is None:
-        return None
-    parsed_html = BeautifulSoup(response.content, 'html.parser')
-    comics_link = parsed_html.find("div", class_="ModuleContent").find("div", class_="items").find_all("items")
-    print(comics_link)
+def download_top_comics(number_of_pages):
+    client = ZenRowsClient(os.getenv("API_KEY"))
+    for i in range(1, number_of_pages + 1):
+        top_all_url = os.getenv("MANGA_DOMAIN") + "tim-truyen?sort=10&status=&page=" + str(i)
+        params = {"js_render":"true"}
+        response = client.get(top_all_url, params=params)
+        if response is None:
+            return None
+        parsed_html = BeautifulSoup(response.text, 'html.parser')
+        comics_tags = parsed_html.find("div", class_="Module-170").find("div", class_="ModuleContent").find("div", class_="items").find_all("a")
+        comics_link = []
+        for comic in comics_tags:
+            comic_link = comic.get('href')
+            comics_link.append(comic_link)
+        for comic_link in comics_link:
+            print(f"Downloading {comic_link}")
+            if mycol.find_one({'comic_path': urlparse(comic_link).path}):
+                print("Comic already exists in the database.")
+                continue
+            chapter_data = comic_info(comic_link)
+            if chapter_data is None:
+                print("Failed to retrieve comic information.")
+                continue
 
-    
+            chapters = chapter_data['chapterlist']
+            comic_path = chapter_data['comic_path']
+            comic_detail = chapter_data['comic_detail']
+            results = []
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [executor.submit(download_chapter, name_chapter, chapters) for name_chapter in chapters]
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()
+                        if result:
+                            results.append(result)
+                    except Exception as e:
+                        print(f"Error downloading chapter: {e}")
+            sorted_results = sorted(results, key=lambda x: x['chapter'], reverse=True)
+            mycol.insert_one({
+                'comic_path': comic_path,
+                'comic_detail': comic_detail,
+                'chapters': sorted_results
+            })
 
 
 def get_chapter_list_from_user():
@@ -235,7 +268,9 @@ def get_chapter_list_from_user():
         elif value == 3:
             update_all_comics_in_db()
         elif value == 4:
-            download_top_comics()
+            number_of_pages = input("Nhap so trang muon download: ")
+            download_top_comics(int(number_of_pages))
+
         else:
             print("BAN NHAP CHUA HOP LE!!!")
 
