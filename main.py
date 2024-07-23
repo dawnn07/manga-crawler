@@ -49,6 +49,7 @@ def comic_info(mainpageURL):
             "banner": urlparse(parsed_html.find("div", class_="col-xs-4 col-image").find("img").get("src")).path,
             "author": parsed_html.find("li", class_="author").find("p", class_="col-xs-8").get_text(),
             "status": parsed_html.find("li", class_="status").find("p", class_="col-xs-8").get_text(),
+            "description": parsed_html.find("div", class_="detail-content").find_all("div", style="padding-top: 10px")[1].get_text(),
         }
         genre_list = []
         genre_a_tags = parsed_html.find("li", class_="kind row").find("p", class_="col-xs-8").find_all("a")
@@ -73,7 +74,7 @@ def comic_info(mainpageURL):
     except requests.RequestException as e:
         print(f"Error fetching URL: {e}")
         return None
-
+    print("Comic information retrieved.", detail["description"])
     return {
         'comic_path': urlparse(mainpageURL).path,
         'comic_detail': detail,
@@ -158,19 +159,19 @@ def update_all_comics_in_db():
         except requests.RequestException as e:
             print(f"Error fetching URL: {e}")
 
-def download_top_comics(number_of_pages):
+def download_top_comics(start_page , number_of_pages):
     client = ZenRowsClient(os.getenv("API_KEY"))
-    for i in range(1, number_of_pages + 1):
+    for i in range(start_page, number_of_pages + 1):
         top_all_url = os.getenv("MANGA_DOMAIN") + "tim-truyen?sort=10&status=&page=" + str(i)
         params = {"js_render":"true"}
         response = client.get(top_all_url, params=params)
         if response is None:
             return None
         parsed_html = BeautifulSoup(response.text, 'html.parser')
-        comics_tags = parsed_html.find("div", class_="Module-170").find("div", class_="ModuleContent").find("div", class_="items").find_all("a")
+        comics_tags = parsed_html.find("div", class_="Module-170").find("div", class_="ModuleContent").find("div", class_="items").find_all("div", class_="image")
         comics_link = []
         for comic in comics_tags:
-            comic_link = comic.get('href')
+            comic_link = comic.find("a").get("href")
             comics_link.append(comic_link)
         for comic_link in comics_link:
             print(f"Downloading {comic_link}")
@@ -181,7 +182,6 @@ def download_top_comics(number_of_pages):
             if chapter_data is None:
                 print("Failed to retrieve comic information.")
                 continue
-
             chapters = chapter_data['chapterlist']
             comic_path = chapter_data['comic_path']
             comic_detail = chapter_data['comic_detail']
@@ -268,8 +268,9 @@ def get_chapter_list_from_user():
         elif value == 3:
             update_all_comics_in_db()
         elif value == 4:
+            start_page = input("Nhap trang bat dau download: ")
             number_of_pages = input("Nhap so trang muon download: ")
-            download_top_comics(int(number_of_pages))
+            download_top_comics(int(start_page),int(number_of_pages))
 
         else:
             print("BAN NHAP CHUA HOP LE!!!")
