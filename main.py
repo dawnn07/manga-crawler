@@ -134,7 +134,7 @@ def update_all_comics_in_db():
             if new_chapters:
                 print(f"New chapters found for {comic['comic_detail']['title']}")
                 results = []
-                with concurrent.futures.ThreadPoolExecutor() as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                     futures = [executor.submit(download_chapter, name_chapter, chapterlist) for name_chapter in new_chapters]
                     for future in concurrent.futures.as_completed(futures):
                         try:
@@ -186,7 +186,7 @@ def download_top_comics(start_page , number_of_pages):
             comic_path = chapter_data['comic_path']
             comic_detail = chapter_data['comic_detail']
             results = []
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [executor.submit(download_chapter, name_chapter, chapters) for name_chapter in chapters]
                 for future in concurrent.futures.as_completed(futures):
                     try:
@@ -250,7 +250,7 @@ def get_chapter_list_from_user():
             comic_path = chapter_data['comic_path']
             comic_detail = chapter_data['comic_detail']
             results = []
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [executor.submit(download_chapter, name_chapter, chapters) for name_chapter in chapters]
                 for future in concurrent.futures.as_completed(futures):
                     try:
